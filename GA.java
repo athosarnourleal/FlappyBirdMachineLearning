@@ -19,12 +19,20 @@ public class GA {
 		return evalSum;
 	}
 	
+	public static double getEvalSum(GAElement pop[]) {
+		double evalSum = 0;
+		for (int i = 0; i < pop.length;i++) {
+			evalSum+=pop[i].eval;
+		}
+		return evalSum;
+	}
+	
 	public static void mutateAll(double chanceOfMutation, GAElement pop[]) {
 		for (int i = 0; i < pop.length;i++) {
 			pop[i].mutation(chanceOfMutation);
 		}
 	}
-
+	
 	public static double evalSum(GAElement pop[]) {
 		double evalSum = 0;
 		for (int i = 0; i < pop.length;i++) {
@@ -51,14 +59,12 @@ public class GA {
 		return i;
 	}
 	
-	public static GAElement[] generation(double mutationChance, int newSize, GAElement pop[]) {
-		// codigo basico
-		Random r = new Random(System.nanoTime());
+	public static GAElement[] simpleGeneration(double mutationChance, int newSize, GAElement pop[]) {
 		
 		GAElement newPop[] = new GAElement[pop.length];
 		GAElement dad,mom,child;
 		
-		double evalSum = evaluateAll(pop);
+		double evalSum = evalSum(pop);
 		
 		for (int i = 0; i < newSize; i++) {
 			dad = (GAElement) pop[roulette(evalSum, pop)];
@@ -72,6 +78,44 @@ public class GA {
 		}
 		
 		return newPop;
+	}
+	
+	public static GAElement[] doubleGeneration(double mutationChance, int newSize, GAElement pop[], GAElement lastPop[]) {
+		
+		GAElement newPop[] = new GAElement[pop.length];
+		GAElement dad,mom,child;
+		
+		double evalSum = evalSum(pop);
+		
+		for (int i = 0; i < newSize; i++) {
+			dad = (GAElement) pop[roulette(evalSum, pop)];
+			mom = (GAElement) pop[roulette(evalSum, pop)];
+			
+			child = dad.crossover(mom);
+			
+			child.mutation(mutationChance);
+			
+			newPop[i] = child;
+		}
+		
+		return newPop;
+	}
+
+	public static GAElement[] concatPop(GAElement pop1[], GAElement pop2[]) {
+		GAElement[] result = new GAElement[pop1.length + pop1.length];
+		int count = 0;
+
+		for (GAElement b : pop1) {
+			result[count] = b;
+			count++;
+		}
+		
+		for (GAElement b : pop2) {
+			result[count] = b;
+			count++;
+		}
+		
+		return result;
 	}
 	
 	public static void mutateAll(GAElement[] pop,double chanceOfMutation) {

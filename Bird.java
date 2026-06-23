@@ -6,10 +6,11 @@ import java.awt.Rectangle;
 import java.util.Random;
 
 public class Bird extends GAElement {
-	
+
 	public int timeAlive = 0;
 	public boolean alive = true;
 	
+	public Color color;
 	public static Color colors[] = {
 		Color.blue,
 		Color.magenta,
@@ -20,149 +21,123 @@ public class Bird extends GAElement {
 		Color.gray
 	};
 	
-	public Rectangle col;
+	public int drawOffset = 0,drawOffsetMax = 5;
 	
-	public double grav = .5, jumpStrength = 10;
-	public double vy = 0;
-
-	public static int startX = Game.T*3, maxDx = Pipe.startingX - startX, maxDy = Game.H-15*Game.T;
-	
-	public static int bitsPerValue= 8*2, numOfNeurons = 3, weightsPerNeuron = 2, biasPerNeuron = 1;
-	public static int chromosomeLen = bitsPerValue*(numOfNeurons*weightsPerNeuron + numOfNeurons*biasPerNeuron);
+	public Rectangle colision;
 	
 	public double dx,dy;
-
-	public double neuronMax = 10;
 	
-	public Neuron brain[];
+	public double vy = 0;
+	public double grav = .5, jumpStrength = 10;
 	
-	public Color color;
+	public static int startX = Main.T*3, maxDx = Pipe.startingX - startX, maxDy = Main.H-15*Main.T;
 	
-	public int drawOffset = 0,drawOffsetMax = 5;
+	public NeuralNetwork brain;
+	public final static int[] neuronLayerSizes = {4, 4, 4, 2};
+	public final static String[] inputLabels = {"dx","dy","level","Yvel"};
+	public final static String[] outputLabels = {"no action","jump"};
+	
+	public int curAction = 0;
 	
 	public Bird() {
 		Random r = new Random();
-		
-		int variationMax = Game.T*2;
-		int variation = r.nextInt(variationMax*2)-variationMax;
-		
-		col = new Rectangle(startX, Game.H/2+variation, Game.T*3, Game.T*3);
-		
+
 		color = colors[r.nextInt(colors.length)];
-		
-		brain = new Neuron[numOfNeurons];
-		
-		for (int i = 0; i < brain.length; i++) {
-			brain[i] = new Neuron(weightsPerNeuron);
-		}
-		
 		drawOffset = r.nextInt(drawOffsetMax*2)-drawOffsetMax;
+
+		
+		int startYvariationMax = Main.T*2;
+		int startYvariation = r.nextInt(startYvariationMax*2)-startYvariationMax;
+		colision = new Rectangle(startX, Main.H/2+startYvariation, Main.T*3, Main.T*3);
+
+		brain = new NeuralNetwork(neuronLayerSizes);
+		
+		initializeElement(brain.getDNALength());
+		
+		brain.defineWeightsFromDNA(this);
+		
 	}
-	
+
 	public void evaluateElement() {
 		this.eval = timeAlive;
 	}
-	
+
+
 	public void jump() {
 		vy = -1*jumpStrength;
 	}
+
 	
 	public void reset() {
 		vy = 0;
 		Random r = new Random();
 		
-		int variationMax = Game.T*2;
-		int variation = r.nextInt(variationMax*2)-variationMax;
-		col.y = Game.H/2 + variation;
+		int startYvariationMax = Main.T*2;
+		int startYvariation = r.nextInt(startYvariationMax*2)-startYvariationMax;
+		colision.y = Main.H/2 + startYvariation;
 		
-		col.x = startX;
+		colision.x = startX;
 		
-		setWeights();
+		brain.defineWeightsFromDNA(this);
 		alive = true;
 		timeAlive = 0;
+		eval = 0;
 	}
 	
 	public void decideAction() {
-		
+		double inputs[] = {dx, dy, Main.curLevel, vy};
 
+		brain.runNeuralNetwork(inputs);
 		
-		double input[] = new double[2];
-		input[0] = map(dx, 0, maxDx, 0.1, neuronMax);
-		input[1] = map(dy, -maxDy, maxDy, 0, neuronMax);
-		brain[0].activateGau(input);
-		brain[1].activateGau(input);
+		curAction = brain.getBiggestOutput();
 		
-		input[0] = brain[0].activation;
-		input[1] = brain[1].activation;
-
-		brain[2].activateStep(input, neuronMax/2);
-		
-		if (brain[2].activation == 1) {
+		if (curAction == 1) {
 			jump();
 		}
 	}
 	
-	public double map(double v0, double v0min, double v0max, double min, double max) {
-		
-		double value = min + v0*(max - min)/(v0max -v0min);
-		
-//		System.out.println("("+v0+",  "+v0min+",  "+v0max+",  "+min+",  "+max+") --> result: "+value);
-		
-		return value;
-	}
-	
-	public void setWeights() {
-		int neuronGeneLen = bitsPerValue * (weightsPerNeuron + biasPerNeuron);
-		
-		for (int i = 0; i < numOfNeurons; i++) {
-			String gene = value.substring(i*neuronGeneLen, (i+1)*neuronGeneLen);
-			
-			brain[i].defineWeight(gene, weightsPerNeuron, bitsPerValue, -neuronMax, neuronMax);
-		}	
-	}
-	
 	public void tick() {
-		if (col.intersects(Game.curPipe.rup) || col.intersects(Game.curPipe.rdown)) {
+		if (Main.curPipe.place_meeting(colision)) {
 			alive = false;
 		}
 		
 		if (alive == false) {
-			if (col.x >= 0-col.width*2) {
-				col.x -= Pipe.vx+Game.curLevel;
+			if (colision.x >= 0-colision.width*2) {
+				colision.x -= Pipe.vx+Main.curLevel;
 			}
 			return;
 		}
 
 		vy += grav;
-		col.y += vy;
+		colision.y += vy;
 
-		dx = Game.curPipe.middleX-col.x;
-		dy = Game.curPipe.middleY-col.y;
-				
-		decideAction();
+		dx = Main.curPipe.middleX-colision.x;
+		dy = Main.curPipe.middleY-colision.y;
 		
-		if(col.y < 0) {
-			col.y = 0;
+		if(colision.y < 0) {
+			colision.y = 0;
 			vy = 0;
-		} else if (col.y > Game.H-col.height) {
-			col.y = Game.H-col.height;
+		} else if (colision.y > Main.H-colision.height) {
+			colision.y = Main.H-colision.height;
 			vy = 0;
 		}
-		
+
+		decideAction();
 		
 		timeAlive++;
 	}
+	
 	public void render(Graphics g) {
 		if (alive == false) {
-			if (col.x < 0 - col.width*2) {
+			if (colision.x < 0 - colision.width*2) {
 				return;
 			}
 			g.setColor(Color.red);
 		} else {
 			g.setColor(color);
 		}
-//		g.drawLine(col.x+drawOffset,col.y,Game.curPipe.middleX,Game.curPipe.middleY);
-		g.fillRect(col.x+drawOffset, col.y, col.width, col.height);
+		
+		g.fillRect(colision.x+drawOffset, colision.y, colision.width, colision.height);
 	}
 	
 	

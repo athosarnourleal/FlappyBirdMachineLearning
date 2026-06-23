@@ -25,8 +25,13 @@ public abstract class GAElement {
 	public int binToInteger(String bin) {
 		return Integer.parseInt(bin, 2);
 	}
+
+	public double getSubsectionNumeralValue(int start, int count, double min, double max) {
+		String gene = getValue().substring(start, start+count);
+		return binToInteger(gene)*(max-min) / (Math.pow(2, gene.length()) - 1) + min;
+	}
 	
-	public double getGeneValue(String gene, double min, double max) {
+	public double getGeneNumeralValue(String gene, double min, double max) {
 		return binToInteger(gene)*(max-min) / (Math.pow(2, gene.length()) - 1) + min;
 	}
 	
